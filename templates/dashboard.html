@@ -316,9 +316,50 @@
 
             </div>
 
-        </section>
+</section>
 
-    </main>
+<section class="panel" style="margin-top:20px;">
+    <h2>Library Analytics</h2>
+
+    <img id="analyticsChart"
+         style="width:100%; max-width:900px; border:1px solid #ddd;">
+
+    <p>
+        <strong>Peak Day:</strong>
+        <span id="peakDay">Loading...</span>
+    </p>
+
+    <p>
+        <strong>Average Loans:</strong>
+        <span id="avgLoans">Loading...</span>
+    </p>
+</section>
+
+</main>
+
+<script>
+function loadAnalytics() {
+
+    fetch("/api/library-insights")
+        .then(response => response.json())
+        .then(data => {
+
+            document.getElementById("analyticsChart").src =
+                "data:image/png;base64," + data.chart;
+
+            document.getElementById("peakDay").innerText =
+                data.peak_day;
+
+            document.getElementById("avgLoans").innerText =
+                data.average_loans;
+        })
+        .catch(error => console.error(error));
+}
+
+loadAnalytics();
+
+setInterval(loadAnalytics, 10000);
+</script>
 
 </body>
 </html>

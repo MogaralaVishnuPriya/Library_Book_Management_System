@@ -10,6 +10,13 @@ from datetime import date, datetime, timedelta
 from functools import wraps
 
 import mysql.connector
+import io
+import base64
+import numpy as np
+import matplotlib
+
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
 from dotenv import load_dotenv
 from flask import (
     Flask,
@@ -815,6 +822,80 @@ def return_book():
 
     return redirect(url_for("issue_return"))
 
+@app.route("/api/library-insights")
+@librarian_required
+def library_insights():
+
+    data = query("""
+        SELECT DAYNAME(issue_date) AS day_name,
+               COUNT(*) AS loan_count
+        FROM loans
+        GROUP BY DAYNAME(issue_date)
+    """)
+
+    days = [
+        "Monday",
+        "Tuesday",
+        "Wednesday",
+        "Thursday",
+        "Friday",
+        "Saturday",
+        "Sunday"
+    ]
+
+    counts = [0] * 7
+
+    if data:
+        day_map = {
+            row["day_name"]: row["loan_count"]
+            for row in data
+        }
+
+        counts = [day_map.get(day, 0) for day in days]
+
+    np_counts = np.array(counts)
+
+    avg_loans = float(np.mean(np_counts))
+    max_loans = int(np.max(np_counts))
+
+    peak_day = (
+        days[int(np.argmax(np_counts))]
+        if max_loans > 0
+        else "N/A"
+    )
+
+    plt.figure(figsize=(8, 5))
+    plt.bar(days, counts, color="cornflowerblue")
+
+    plt.axhline(
+        avg_loans,
+        color="red",
+        linestyle="--",
+        label=f"Average ({avg_loans:.2f})"
+    )
+
+    plt.title("Library Borrowing Trends")
+    plt.xlabel("Day")
+    plt.ylabel("Books Borrowed")
+    plt.legend()
+
+    img = io.BytesIO()
+
+    plt.savefig(img, format="png")
+    img.seek(0)
+
+    image = base64.b64encode(
+        img.getvalue()
+    ).decode("utf-8")
+
+    plt.close()
+
+    return jsonify({
+        "peak_day": peak_day,
+        "max_loans": max_loans,
+        "average_loans": round(avg_loans, 2),
+        "chart": image
+    })
 
 @app.route("/api/analytics")
 @librarian_required
